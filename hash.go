@@ -8,7 +8,6 @@ import (
 	"github.com/softrDevelop/hash/help"
 	"hash"
 	"io"
-	"log"
 	"os"
 )
 
@@ -18,38 +17,41 @@ type args struct {
 }
 
 // getNewHashHash returns passed algo type as a hash.Hash
-func getNewHashHash (AlgoType string) (hash.Hash, error){
+func getNewHashHash(AlgoType string) (hash.Hash, error) {
 	switch AlgoType {
 	case "-sha256":
-		return sha256.New(), nill
+		return sha256.New(), nil
 	case "-sha512":
-		return sha512.New(), nill
+		return sha512.New(), nil
 	case "-md5":
-		return md5.New(), nill
+		return md5.New(), nil
 	default:
-		return nil,fmt.Errorf("Unknow algo type %v/n",AlgoType)
+		return nil, fmt.Errorf("unknow algo type %v", AlgoType)
 	}
 }
 
+// generate returns hash if success or zero value string and error if error encountered
+func (a args) generate() (string, error) {
 
-// generate returns hash if success
-func (a args) generate() string {
 	f, err := os.Open(a.filePath)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer f.Close()
 	h, err := getNewHashHash(a.algo)
+	if err != nil {
+		return "", err
+	}
 
 	_, err = io.Copy(h, f)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// lenHashType returns the blocksizes of the passed hash
-func lenHashType (AlgoType string) int{
+// lenHashType returns the blocksizes of the passed hash, -1 if missmatch
+func lenHashType(AlgoType string) int {
 	switch AlgoType {
 	case "-sha256":
 		return sha256.BlockSize
@@ -63,16 +65,17 @@ func lenHashType (AlgoType string) int{
 
 }
 
-// lenghtOK returns true if passed hash has corresponing blocksize
-func (a args)lengthOK(v string) {
+// lenghtOK returns true if passed hash has corresponding blocksize
+func (a args) lengthOK(v string) error {
 	lenType := lenHashType(a.algo)
 
 	if len(v) < lenType {
-		log.Fatal("Hash in argument too short ", len(v),"/",lenType)
+		return fmt.Errorf("hash in argument too short %v/%v", len(v), lenType)
 	}
 	if len(v) > lenType {
-		log.Fatal("Hash in argument too long ", len(v),"/",lenType)
+		return fmt.Errorf("hash in argument too long %v/%v", len(v), lenType)
 	}
+	return nil
 }
 
 func main() {
@@ -91,16 +94,33 @@ func main() {
 	//If there is a hash in the third argument do compare
 	if len(os.Args) >= 4 {
 		//Check if length of hash is ok
-		arguments.lengthOK(os.Args[3])
-		//Compare hashes
-		if os.Args[3] != arguments.generate() {
-			log.Fatal("Hash mismatch")
+		err := arguments.lengthOK(os.Args[3])
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
-		fmt.Println("Hash matching")
+
+		// Generate hash
+		genedHash, err := arguments.generate()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// Compare hashes
+		if os.Args[3] != genedHash {
+			fmt.Println("hash mismatch")
+			return
+		}
+		fmt.Println("hash matching")
 		return
 	}
 
-	//Else just print out hash of file
-	fmt.Println(arguments.generate())
+	//Else just print out hash of
+	genedHash, err := arguments.generate()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(genedHash)
 	return
 }
